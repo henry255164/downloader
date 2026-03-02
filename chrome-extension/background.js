@@ -37,7 +37,7 @@ function formatCookies(cookies) {
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "download-with-go") {
-    let url = info.linkUrl || info.srcUrl || info.pageUrl;
+    const url = info.linkUrl || info.srcUrl || info.pageUrl;
     let site = "unknown";
 
     if (url.includes("youtube.com") || url.includes("youtu.be")) {
@@ -49,8 +49,24 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     }
 
     const cookies = await getCookies(url);
-    const formattedCookies = formatCookies(cookies);
-    console.log(`Formatted ${formattedCookies.length} cookies for ${site}`);
-    // Task 2.3 will bundle into payload
+    const payload = {
+      url: url,
+      site: site,
+      cookies: formatCookies(cookies)
+    };
+
+    console.log("Sending payload to Go:", payload);
+    
+    // chrome.runtime.sendNativeMessage(
+    //   "com.media.downloader.go",
+    //   payload,
+    //   (response) => {
+    //     if (chrome.runtime.lastError) {
+    //       console.error("Native Messaging Error:", chrome.runtime.lastError.message);
+    //     } else {
+    //       console.log("Native Messaging Response:", response);
+    //     }
+    //   }
+    // );
   }
 });
