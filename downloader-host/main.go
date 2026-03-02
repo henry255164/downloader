@@ -143,7 +143,12 @@ func executeDownload(id int, task DownloadTask) {
 
 	outputPath := filepath.Join(path, "%(title)s.%(ext)s")
 	
-	args := []string{"--newline", "--cookies", cookiePath, "-o", outputPath}
+	args := []string{
+		"--newline", 
+		"--cookies", cookiePath, 
+		"-o", outputPath,
+		"-f", "bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/best[ext=mp4]/best",
+	}
 	if ffmpegPath != "" {
 		args = append(args, "--ffmpeg-location", ffmpegPath)
 	}
