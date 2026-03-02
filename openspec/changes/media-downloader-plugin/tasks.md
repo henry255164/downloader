@@ -21,5 +21,5 @@
 ## 4. 系統整合與配置
 
 - [x] 4.1 撰寫 .env 配置範例，包含 BASE_DOWNLOAD_PATH 與並行限制。
-- [ ] 4.2 提供 Native Messaging Manifest 安裝腳本以註冊 Go 服務。
+- [x] 4.2 提供 Native Messaging Manifest 安裝腳本以註冊 Go 服務。
 - [ ] 4.3 進行全流程測試：從 Extension 右鍵點擊到 Go 服務完成下載。

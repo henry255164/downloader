@@ -1,0 +1,9 @@
+{
+  "name": "com.media.downloader.go",
+  "description": "Chrome Native Messaging Host for Media Downloader",
+  "path": "HOST_PATH",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://EXTENSION_ID/"
+  ]
+}
