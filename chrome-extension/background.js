@@ -51,18 +51,24 @@ function formatCookies(cookies) {
     path: cookie.path,
     secure: cookie.secure,
     httpOnly: cookie.httpOnly,
-    expirationDate: cookie.expirationDate
+    expirationDate: cookie.expirationDate,
+    hostOnly: cookie.hostOnly
   }));
 }
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "download-with-go") {
-    const url = info.linkUrl || info.srcUrl || info.pageUrl;
+    let url = info.linkUrl || info.srcUrl || info.pageUrl;
     let site = "unknown";
+
+    // Normalize x.com to twitter.com for better yt-dlp compatibility
+    if (url.includes("x.com")) {
+      url = url.replace("x.com", "twitter.com");
+    }
 
     if (url.includes("youtube.com") || url.includes("youtu.be")) {
       site = "youtube";
-    } else if (url.includes("twitter.com") || url.includes("x.com")) {
+    } else if (url.includes("twitter.com")) {
       site = "twitter";
     } else if (url.includes("instagram.com")) {
       site = "instagram";

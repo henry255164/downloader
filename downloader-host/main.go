@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/joho/godotenv"
@@ -23,10 +24,13 @@ type DownloadTask struct {
 }
 
 type CookiePayload struct {
-	Name   string `json:"name"`
-	Value  string `json:"value"`
-	Domain string `json:"domain"`
-	Path   string `json:"path"`
+	Name           string  `json:"name"`
+	Value          string  `json:"value"`
+	Domain         string  `json:"domain"`
+	Path           string  `json:"path"`
+	Secure         bool    `json:"secure"`
+	ExpirationDate float64 `json:"expirationDate"`
+	HostOnly       bool    `json:"hostOnly"`
 }
 
 type Response struct {
@@ -80,9 +84,33 @@ func writeCookiesToFile(cookies []CookiePayload) (string, error) {
 	}
 	defer tmpFile.Close()
 
+	// Official Netscape format: 
+	// domain  include_subdomains  path  secure  expiry  name  value
 	fmt.Fprintf(tmpFile, "# Netscape HTTP Cookie File\n")
 	for _, c := range cookies {
-		fmt.Fprintf(tmpFile, "%s\tTRUE\t%s\tTRUE\t0\t%s\t%s\n", c.Domain, c.Path, c.Name, c.Value)
+		// Rule: If domain starts with '.', flag is TRUE. If host-only, flag is FALSE.
+		includeSubdomains := "TRUE"
+		if c.HostOnly {
+			includeSubdomains = "FALSE"
+		} else if !strings.HasPrefix(c.Domain, ".") {
+			// Ensure domain cookies start with a dot if not host-only
+			// but we follow the flag provided by Chrome
+		}
+
+		secure := "FALSE"
+		if c.Secure {
+			secure = "TRUE"
+		}
+
+		// Use 0 if expiration date is missing (session cookie)
+		expiry := int64(c.ExpirationDate)
+		
+		// Ensure name and value don't contain tabs that break the format
+		name := strings.ReplaceAll(c.Name, "\t", " ")
+		value := strings.ReplaceAll(c.Value, "\t", " ")
+
+		fmt.Fprintf(tmpFile, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n", 
+			c.Domain, includeSubdomains, c.Path, secure, expiry, name, value)
 	}
 
 	return tmpFile.Name(), nil
