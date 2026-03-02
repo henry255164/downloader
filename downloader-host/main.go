@@ -49,7 +49,21 @@ func writeMessage(w io.Writer, payload []byte) error {
 	return err
 }
 
+func worker(id int, jobs <-chan DownloadTask) {
+	for task := range jobs {
+		log.Printf("Worker %d: processing task for %s\n", id, task.URL)
+		// Task 3.5 will call yt-dlp here
+	}
+}
+
 func main() {
+	numWorkers := 3 // This will eventually come from .env
+	jobs := make(chan DownloadTask, 100)
+
+	for w := 1; w <= numWorkers; w++ {
+		go worker(w, jobs)
+	}
+
 	for {
 		payload, err := readMessage(os.Stdin)
 		if err != nil {
@@ -65,10 +79,9 @@ func main() {
 			continue
 		}
 
-		log.Printf("Received task: %s from site %s\n", task.URL, task.Site)
+		jobs <- task
 
-		// Respond back
-		resp := Response{Status: "received", Message: "Download task queued"}
+		resp := Response{Status: "queued", Message: "Download task added to queue"}
 		respJSON, _ := json.Marshal(resp)
 		if err := writeMessage(os.Stdout, respJSON); err != nil {
 			log.Fatal("Write error:", err)
