@@ -14,7 +14,16 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-chrome.contextMenus.onClicked.addListener((info, tab) => {
+async function getCookies(url) {
+  const domain = new URL(url).hostname;
+  return new Promise((resolve) => {
+    chrome.cookies.getAll({ domain }, (cookies) => {
+      resolve(cookies);
+    });
+  });
+}
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "download-with-go") {
     let url = info.linkUrl || info.srcUrl || info.pageUrl;
     let site = "unknown";
@@ -27,7 +36,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       site = "instagram";
     }
 
-    console.log("Download task:", { url, site });
-    // Next tasks will handle cookie extraction and sending to Go
+    const cookies = await getCookies(url);
+    console.log(`Extracted ${cookies.length} cookies for ${site}`);
+    // Task 2.2 will format cookies
   }
 });
