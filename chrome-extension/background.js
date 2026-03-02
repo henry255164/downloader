@@ -5,6 +5,26 @@ const TARGET_SITES = [
   "instagram.com"
 ];
 
+let nativePort = null;
+
+// Ensure we have a persistent connection to the Go host
+function getNativePort() {
+  if (nativePort) return nativePort;
+
+  nativePort = chrome.runtime.connectNative("com.media.downloader.go");
+  
+  nativePort.onMessage.addListener((response) => {
+    console.log("Native Messaging Response:", response);
+  });
+
+  nativePort.onDisconnect.addListener(() => {
+    console.error("Native Messaging Port Disconnected:", chrome.runtime.lastError?.message);
+    nativePort = null;
+  });
+
+  return nativePort;
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "download-with-go",
@@ -55,18 +75,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       cookies: formatCookies(cookies)
     };
 
-    console.log("Sending payload to Go:", payload);
+    console.log("Sending payload to Go (via Persistent Port):", payload);
     
-    chrome.runtime.sendNativeMessage(
-      "com.media.downloader.go",
-      payload,
-      (response) => {
-        if (chrome.runtime.lastError) {
-          console.error("Native Messaging Error:", chrome.runtime.lastError.message);
-        } else {
-          console.log("Native Messaging Response:", response);
-        }
-      }
-    );
+    try {
+      const port = getNativePort();
+      port.postMessage(payload);
+    } catch (err) {
+      console.error("Failed to send message:", err);
+    }
   }
 });

@@ -1,2 +1,9 @@
+.DS_Store
+**/.DS_Store
+downloader-host/downloads/
+downloader-host/app.log
+downloader-host/downloader-host
+downloader-host/cookies-*.txt
+
 .spectra/
 openspec/.vector-search.db*

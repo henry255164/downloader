@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 
 	"github.com/joho/godotenv"
 )
@@ -31,6 +33,8 @@ type Response struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
 }
+
+var wg sync.WaitGroup
 
 func readMessage(r io.Reader) ([]byte, error) {
 	var length uint32
@@ -58,6 +62,10 @@ func getDownloadPath(site string) string {
 	if basePath == "" {
 		basePath = "downloads"
 	}
+	if !filepath.IsAbs(basePath) {
+		exePath, _ := os.Executable()
+		basePath = filepath.Join(filepath.Dir(exePath), basePath)
+	}
 	targetPath := filepath.Join(basePath, site)
 	if err := os.MkdirAll(targetPath, 0755); err != nil {
 		log.Printf("Error creating directory %s: %v\n", targetPath, err)
@@ -72,7 +80,6 @@ func writeCookiesToFile(cookies []CookiePayload) (string, error) {
 	}
 	defer tmpFile.Close()
 
-	// Simple Netscape-like format for yt-dlp
 	fmt.Fprintf(tmpFile, "# Netscape HTTP Cookie File\n")
 	for _, c := range cookies {
 		fmt.Fprintf(tmpFile, "%s\tTRUE\t%s\tTRUE\t0\t%s\t%s\n", c.Domain, c.Path, c.Name, c.Value)
@@ -83,40 +90,93 @@ func writeCookiesToFile(cookies []CookiePayload) (string, error) {
 
 func worker(id int, jobs <-chan DownloadTask) {
 	for task := range jobs {
-		path := getDownloadPath(task.Site)
-		log.Printf("Worker %d: starting download for %s\n", id, task.URL)
+		wg.Add(1)
+		executeDownload(id, task)
+		wg.Done()
+	}
+}
 
-		cookiePath, err := writeCookiesToFile(task.Cookies)
-		if err != nil {
-			log.Printf("Worker %d: error writing cookies: %v\n", id, err)
-			continue
+func executeDownload(id int, task DownloadTask) {
+	path := getDownloadPath(task.Site)
+	
+	ytDlpPath := os.Getenv("YT_DLP_PATH")
+	if ytDlpPath == "" {
+		ytDlpPath = "yt-dlp"
+	}
+
+	ffmpegPath := os.Getenv("FFMPEG_PATH")
+
+	cookiePath, err := writeCookiesToFile(task.Cookies)
+	if err != nil {
+		log.Printf("Worker %d: error writing cookies: %v\n", id, err)
+		return
+	}
+	defer os.Remove(cookiePath)
+
+	outputPath := filepath.Join(path, "%(title)s.%(ext)s")
+	
+	args := []string{"--newline", "--cookies", cookiePath, "-o", outputPath}
+	if ffmpegPath != "" {
+		args = append(args, "--ffmpeg-location", ffmpegPath)
+	}
+	args = append(args, task.URL)
+
+	log.Printf("Worker %d: Executing [%s %v]\n", id, ytDlpPath, args)
+
+	cmd := exec.Command(ytDlpPath, args...)
+	
+	stdout, _ := cmd.StdoutPipe()
+	stderr, _ := cmd.StderrPipe()
+
+	if err := cmd.Start(); err != nil {
+		log.Printf("Worker %d: FAILED TO START: %v\n", id, err)
+		return
+	}
+
+	go func() {
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			log.Printf("W%d-OUT: %s\n", id, scanner.Text())
 		}
-
-		cmd := exec.Command("yt-dlp", "--cookies", cookiePath, "-o", filepath.Join(path, "%(title)s.%(ext)s"), task.URL)
-		output, err := cmd.CombinedOutput()
-		os.Remove(cookiePath) // cleanup
-
-		if err != nil {
-			log.Printf("Worker %d: download failed: %v\nOutput: %s\n", id, err, string(output))
-		} else {
-			log.Printf("Worker %d: download complete: %s\n", id, task.URL)
+	}()
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			log.Printf("W%d-ERR: %s\n", id, scanner.Text())
 		}
+	}()
+
+	err = cmd.Wait()
+	if err != nil {
+		log.Printf("Worker %d: Download finished with error: %v\n", id, err)
+		exec.Command("osascript", "-e", fmt.Sprintf("display notification \"Download failed for %s\" with title \"Media Downloader\"", task.URL)).Run()
+	} else {
+		log.Printf("Worker %d: Download complete: %s\n", id, task.URL)
+		exec.Command("osascript", "-e", fmt.Sprintf("display notification \"Download complete!\" subtitle \"%s\" with title \"Media Downloader\"", task.URL)).Run()
 	}
 }
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using defaults")
+	exePath, _ := os.Executable()
+	exeDir := filepath.Dir(exePath)
+	logFile := filepath.Join(exeDir, "app.log")
+	
+	f, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err == nil {
+		log.SetOutput(f)
+		defer f.Close()
 	}
 
+	godotenv.Load(filepath.Join(exeDir, ".env"))
+	log.Printf("Service started. PID: %d, YT_DLP: %s, FFMPEG: %s\n", os.Getpid(), os.Getenv("YT_DLP_PATH"), os.Getenv("FFMPEG_PATH"))
+
 	numWorkersStr := os.Getenv("MAX_CONCURRENT_DOWNLOADS")
-	numWorkers, err := strconv.Atoi(numWorkersStr)
-	if err != nil || numWorkers <= 0 {
+	numWorkers, _ := strconv.Atoi(numWorkersStr)
+	if numWorkers <= 0 {
 		numWorkers = 3
 	}
 
 	jobs := make(chan DownloadTask, 100)
-
 	for w := 1; w <= numWorkers; w++ {
 		go worker(w, jobs)
 	}
@@ -125,9 +185,11 @@ func main() {
 		payload, err := readMessage(os.Stdin)
 		if err != nil {
 			if err == io.EOF {
+				log.Println("Stdin closed (EOF), waiting for workers to finish...")
 				break
 			}
-			log.Fatal("Read error:", err)
+			log.Printf("Read error: %v\n", err)
+			break
 		}
 
 		var task DownloadTask
@@ -137,11 +199,9 @@ func main() {
 		}
 
 		jobs <- task
-
-		resp := Response{Status: "queued", Message: "Download task added to queue"}
-		respJSON, _ := json.Marshal(resp)
-		if err := writeMessage(os.Stdout, respJSON); err != nil {
-			log.Fatal("Write error:", err)
-		}
+		writeMessage(os.Stdout, []byte(`{"status":"queued"}`))
 	}
+
+	wg.Wait()
+	log.Println("Service exiting normally.")
 }
