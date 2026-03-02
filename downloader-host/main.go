@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 
@@ -63,11 +65,42 @@ func getDownloadPath(site string) string {
 	return targetPath
 }
 
+func writeCookiesToFile(cookies []CookiePayload) (string, error) {
+	tmpFile, err := os.CreateTemp("", "cookies-*.txt")
+	if err != nil {
+		return "", err
+	}
+	defer tmpFile.Close()
+
+	// Simple Netscape-like format for yt-dlp
+	fmt.Fprintf(tmpFile, "# Netscape HTTP Cookie File\n")
+	for _, c := range cookies {
+		fmt.Fprintf(tmpFile, "%s\tTRUE\t%s\tTRUE\t0\t%s\t%s\n", c.Domain, c.Path, c.Name, c.Value)
+	}
+
+	return tmpFile.Name(), nil
+}
+
 func worker(id int, jobs <-chan DownloadTask) {
 	for task := range jobs {
 		path := getDownloadPath(task.Site)
-		log.Printf("Worker %d: processing task for %s in %s\n", id, task.URL, path)
-		// Task 3.5 will call yt-dlp here
+		log.Printf("Worker %d: starting download for %s\n", id, task.URL)
+
+		cookiePath, err := writeCookiesToFile(task.Cookies)
+		if err != nil {
+			log.Printf("Worker %d: error writing cookies: %v\n", id, err)
+			continue
+		}
+
+		cmd := exec.Command("yt-dlp", "--cookies", cookiePath, "-o", filepath.Join(path, "%(title)s.%(ext)s"), task.URL)
+		output, err := cmd.CombinedOutput()
+		os.Remove(cookiePath) // cleanup
+
+		if err != nil {
+			log.Printf("Worker %d: download failed: %v\nOutput: %s\n", id, err, string(output))
+		} else {
+			log.Printf("Worker %d: download complete: %s\n", id, task.URL)
+		}
 	}
 }
 
