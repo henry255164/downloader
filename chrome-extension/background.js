@@ -57,16 +57,16 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
     console.log("Sending payload to Go:", payload);
     
-    // chrome.runtime.sendNativeMessage(
-    //   "com.media.downloader.go",
-    //   payload,
-    //   (response) => {
-    //     if (chrome.runtime.lastError) {
-    //       console.error("Native Messaging Error:", chrome.runtime.lastError.message);
-    //     } else {
-    //       console.log("Native Messaging Response:", response);
-    //     }
-    //   }
-    // );
+    chrome.runtime.sendNativeMessage(
+      "com.media.downloader.go",
+      payload,
+      (response) => {
+        if (chrome.runtime.lastError) {
+          console.error("Native Messaging Error:", chrome.runtime.lastError.message);
+        } else {
+          console.log("Native Messaging Response:", response);
+        }
+      }
+    );
   }
 });
