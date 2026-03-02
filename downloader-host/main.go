@@ -6,6 +6,10 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
+	"strconv"
+
+	"github.com/joho/godotenv"
 )
 
 type DownloadTask struct {
@@ -26,7 +30,6 @@ type Response struct {
 	Message string `json:"message"`
 }
 
-// readMessage reads a native message from stdin (4-byte length prefix + payload)
 func readMessage(r io.Reader) ([]byte, error) {
 	var length uint32
 	if err := binary.Read(r, binary.LittleEndian, &length); err != nil {
@@ -39,7 +42,6 @@ func readMessage(r io.Reader) ([]byte, error) {
 	return payload, nil
 }
 
-// writeMessage writes a native message to stdout (4-byte length prefix + payload)
 func writeMessage(w io.Writer, payload []byte) error {
 	length := uint32(len(payload))
 	if err := binary.Write(w, binary.LittleEndian, length); err != nil {
@@ -49,15 +51,37 @@ func writeMessage(w io.Writer, payload []byte) error {
 	return err
 }
 
+func getDownloadPath(site string) string {
+	basePath := os.Getenv("BASE_DOWNLOAD_PATH")
+	if basePath == "" {
+		basePath = "downloads"
+	}
+	targetPath := filepath.Join(basePath, site)
+	if err := os.MkdirAll(targetPath, 0755); err != nil {
+		log.Printf("Error creating directory %s: %v\n", targetPath, err)
+	}
+	return targetPath
+}
+
 func worker(id int, jobs <-chan DownloadTask) {
 	for task := range jobs {
-		log.Printf("Worker %d: processing task for %s\n", id, task.URL)
+		path := getDownloadPath(task.Site)
+		log.Printf("Worker %d: processing task for %s in %s\n", id, task.URL, path)
 		// Task 3.5 will call yt-dlp here
 	}
 }
 
 func main() {
-	numWorkers := 3 // This will eventually come from .env
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using defaults")
+	}
+
+	numWorkersStr := os.Getenv("MAX_CONCURRENT_DOWNLOADS")
+	numWorkers, err := strconv.Atoi(numWorkersStr)
+	if err != nil || numWorkers <= 0 {
+		numWorkers = 3
+	}
+
 	jobs := make(chan DownloadTask, 100)
 
 	for w := 1; w <= numWorkers; w++ {

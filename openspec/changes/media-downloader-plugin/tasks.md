@@ -15,7 +15,7 @@
 - [x] 3.1 建立 Go 專案結構並實作 Native Messaging Establishment 與 Message Protocol Compliance (4-byte header)。
 - [x] 3.2 採用 Native Messaging 通訊協議處理 STDIN/STDOUT。
 - [x] 3.3 使用 Golang 實作並行下載 Worker Pool Concurrency 併發管理邏輯。
-- [ ] 3.4 實作 Target Path Classification 以及動態路徑映射與環境變數配置。
+- [x] 3.4 實作 Target Path Classification 以及動態路徑映射與環境變數配置。
 - [ ] 3.5 實作 yt-dlp Execution 下載核心調用，傳遞 URL 與 Cookie 檔案。
 
 ## 4. 系統整合與配置
