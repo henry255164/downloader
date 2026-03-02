@@ -1,0 +1,13 @@
+schema: spec-driven
+tdd: true
+
+context: |
+  專案類型：chrome plugin
+  技術棧：bun, typescript, less, rust, WASM
+  需求是在不同指定網站下載圖片或影片
+rules:
+  原子提交:
+    - 每個task的必須依照功能拆分，避免邏輯耦合
+    - 需要先 git commit 後才進行下一個 task
+  架構:
+    - design : js html css 務必拆分
