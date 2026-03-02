@@ -7,7 +7,7 @@
 ## 2. 會話與 Cookie 管理
 
 - [x] 2.1 實作 Cookie Extraction 機制，擷取目標網域的所有 Cookies。
-- [ ] 2.2 實作 Secure Cookie Packaging 將 Cookies 格式化為 JSON 準備傳輸。
+- [x] 2.2 實作 Secure Cookie Packaging 將 Cookies 格式化為 JSON 準備傳輸。
 - [ ] 2.3 整合 Cookies 傳遞機制，將 Metadata 與 Cookies 封裝為完整 Payload。
 
 ## 3. Go 本地服務開發

@@ -23,6 +23,18 @@ async function getCookies(url) {
   });
 }
 
+function formatCookies(cookies) {
+  return cookies.map(cookie => ({
+    name: cookie.name,
+    value: cookie.value,
+    domain: cookie.domain,
+    path: cookie.path,
+    secure: cookie.secure,
+    httpOnly: cookie.httpOnly,
+    expirationDate: cookie.expirationDate
+  }));
+}
+
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "download-with-go") {
     let url = info.linkUrl || info.srcUrl || info.pageUrl;
@@ -37,7 +49,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     }
 
     const cookies = await getCookies(url);
-    console.log(`Extracted ${cookies.length} cookies for ${site}`);
-    // Task 2.2 will format cookies
+    const formattedCookies = formatCookies(cookies);
+    console.log(`Formatted ${formattedCookies.length} cookies for ${site}`);
+    // Task 2.3 will bundle into payload
   }
 });
