@@ -18,9 +18,11 @@ import (
 )
 
 type DownloadTask struct {
-	URL     string          `json:"url"`
-	Site    string          `json:"site"`
-	Cookies []CookiePayload `json:"cookies"`
+	URL       string          `json:"url"`
+	Site      string          `json:"site"`
+	Cookies   []CookiePayload `json:"cookies"`
+	UserAgent string          `json:"userAgent"`
+	Referer   string          `json:"referer"`
 }
 
 type CookiePayload struct {
@@ -148,6 +150,12 @@ func executeDownload(id int, task DownloadTask) {
 		"--cookies", cookiePath, 
 		"-o", outputPath,
 		"-f", "bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/best[ext=mp4]/best",
+	}
+	if task.UserAgent != "" {
+		args = append(args, "--user-agent", task.UserAgent)
+	}
+	if task.Referer != "" {
+		args = append(args, "--add-header", "Referer:"+task.Referer)
 	}
 	if ffmpegPath != "" {
 		args = append(args, "--ffmpeg-location", ffmpegPath)

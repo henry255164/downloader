@@ -5,5 +5,21 @@ downloader-host/app.log
 downloader-host/downloader-host
 downloader-host/cookies-*.txt
 
+# Feature Design System
+docs/features/
+docs/features/archive/
+docs/features/FEATURE_INDEX.md
+docs/features/TEMPLATE.md
+
+# Gemini/Spectra Configuration
+.gemini/
 .spectra/
+GEMINI.md
+CHANGELOG.md
+
+# Environment Secrets
+.env
+**/.env
+
+# OpenSpec
 openspec/.vector-search.db*

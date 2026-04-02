@@ -6,13 +6,16 @@
   "permissions": [
     "contextMenus",
     "cookies",
-    "nativeMessaging"
+    "nativeMessaging",
+    "scripting"
   ],
   "host_permissions": [
     "*://*.youtube.com/*",
     "*://*.twitter.com/*",
     "*://*.x.com/*",
-    "*://*.instagram.com/*"
+    "*://*.instagram.com/*",
+    "*://*.threads.net/*",
+    "*://*.threads.com/*"
   ],
   "background": {
     "service_worker": "background.js"
