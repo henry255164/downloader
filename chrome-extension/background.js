@@ -58,6 +58,16 @@ function formatCookies(cookies) {
   }));
 }
 
+function normalizeDownloadUrl(url) {
+  const mediaUrl = new URL(url);
+  if (/\.(?:mp4|webm|mov|m4v)$/i.test(mediaUrl.pathname) &&
+      (mediaUrl.searchParams.has('bytestart') || mediaUrl.searchParams.has('byteend'))) {
+    mediaUrl.searchParams.delete('bytestart');
+    mediaUrl.searchParams.delete('byteend');
+  }
+  return mediaUrl.href;
+}
+
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "download-with-go") {
     let url = info.linkUrl || info.srcUrl || info.pageUrl;
@@ -80,21 +90,41 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       try {
         const results = await chrome.scripting.executeScript({
           target: { tabId: tab.id },
-          func: () => {
-            const video = document.querySelector('video');
-            if (video) {
-              return video.src || (video.querySelector('source') ? video.querySelector('source').src : null);
+          func: async () => {
+            for (let attempt = 0; attempt < 10; attempt++) {
+              for (const video of document.querySelectorAll('video')) {
+                const videoUrl = [video.currentSrc, video.src, video.querySelector('source')?.src]
+                  .find(src => /^https?:\/\//.test(src));
+                if (videoUrl) return videoUrl;
+              }
+              await new Promise(resolve => setTimeout(resolve, 500));
             }
-            return null;
+            const mediaEntry = performance.getEntriesByType('resource').find(entry => {
+              try {
+                const mediaUrl = new URL(entry.name);
+                const host = mediaUrl.hostname;
+                return mediaUrl.protocol === 'https:' && mediaUrl.pathname.endsWith('.mp4') &&
+                  (host === 'fbcdn.net' || host.endsWith('.fbcdn.net') ||
+                   host === 'cdninstagram.com' || host.endsWith('.cdninstagram.com'));
+              } catch {
+                return false;
+              }
+            });
+            return mediaEntry?.name || null;
           }
         });
         
-        if (results && results[0] && results[0].result) {
+        if (!results?.[0]?.result && site === "threads") {
+          console.error("No direct video URL found; download skipped:", url);
+          return;
+        }
+        if (results?.[0]?.result) {
           url = results[0].result;
-          console.log("Found video URL via script:", url);
+          console.log("Found direct video URL via script:", url);
         }
       } catch (err) {
         console.error("Failed to execute script:", err);
+        if (site === "threads") return;
       }
     }
 
@@ -104,6 +134,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       else if (tab.url.includes("instagram.com")) site = "instagram";
     }
 
+    url = normalizeDownloadUrl(url);
     const cookies = await getCookies(url);
     const payload = {
       url: url,
